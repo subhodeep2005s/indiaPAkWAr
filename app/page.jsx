@@ -259,9 +259,9 @@ export default function Home() {
               <div className="text-sm text-gray-500 mb-4">
                 Source: {selectedNews.source} • {formatDate(selectedNews.createdAt)}
               </div>
-              {selectedNews.source && (
+              {(selectedNews.sourceLink || selectedNews.source) && (
                 <a
-                  href={selectedNews.source}
+                  href={selectedNews.sourceLink || selectedNews.source}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"

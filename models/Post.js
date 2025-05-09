@@ -20,6 +20,10 @@ const postSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  sourceLink: {
+    type: String,
+    trim: true,
+  },
   status: {
     type: String,
     enum: ['verified', 'unverified', 'false'],

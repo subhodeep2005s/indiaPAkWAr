@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Upload, Plus, Trash2, Edit2, X } from "lucide-react"
+import { ArrowLeft, Upload, Plus, Trash2, Edit2, X, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
 export default function AdminPage() {
@@ -10,6 +10,7 @@ export default function AdminPage() {
     summary: "",
     content: "",
     source: "",
+    sourceLink: "",
     status: "verified",
     image: null,
   })
@@ -44,6 +45,18 @@ export default function AdminPage() {
   const handleImageChange = (e) => {
     const file = e.target.files[0]
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setSuccessMessage('Please upload an image file')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setSuccessMessage('Image size should be less than 5MB')
+        return
+      }
+
       setFormData((prev) => ({ ...prev, image: file }))
       const reader = new FileReader()
       reader.onloadend = () => {
@@ -56,15 +69,39 @@ export default function AdminPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setSuccessMessage("")
 
     try {
       const formDataToSend = new FormData()
-      formDataToSend.append('title', formData.title)
-      formDataToSend.append('summary', formData.summary)
-      formDataToSend.append('content', formData.content)
-      formDataToSend.append('source', formData.source)
+      
+      // Validate required fields
+      if (!formData.title.trim()) {
+        throw new Error('Title is required')
+      }
+      if (!formData.summary.trim()) {
+        throw new Error('Summary is required')
+      }
+      if (!formData.content.trim()) {
+        throw new Error('Content is required')
+      }
+      if (!formData.source.trim()) {
+        throw new Error('Source is required')
+      }
+
+      // Append form fields
+      formDataToSend.append('title', formData.title.trim())
+      formDataToSend.append('summary', formData.summary.trim())
+      formDataToSend.append('content', formData.content.trim())
+      formDataToSend.append('source', formData.source.trim())
+      formDataToSend.append('sourceLink', formData.sourceLink.trim())
       formDataToSend.append('status', formData.status)
-      if (formData.image) {
+      
+      // Handle image upload
+      if (formData.image instanceof File) {
+        // Validate image size again before upload
+        if (formData.image.size > 5 * 1024 * 1024) {
+          throw new Error('Image size should be less than 5MB')
+        }
         formDataToSend.append('image', formData.image)
       }
 
@@ -83,7 +120,7 @@ export default function AdminPage() {
       }
 
       setSuccessMessage(isEditing ? 'Post updated successfully!' : 'Post created successfully!')
-      fetchPosts()
+      await fetchPosts()
       
       // Reset form
       setFormData({
@@ -91,6 +128,7 @@ export default function AdminPage() {
         summary: "",
         content: "",
         source: "",
+        sourceLink: "",
         status: "verified",
         image: null,
       })
@@ -117,6 +155,7 @@ export default function AdminPage() {
       summary: post.summary,
       content: post.content,
       source: post.source,
+      sourceLink: post.sourceLink || "",
       status: post.status,
       image: null,
     })
@@ -320,6 +359,23 @@ export default function AdminPage() {
               />
             </div>
 
+            {/* Source Link */}
+            <div className="mb-6">
+              <label htmlFor="sourceLink" className="block text-sm font-medium text-gray-700 mb-2">
+                Source Link
+              </label>
+              <input
+                type="url"
+                id="sourceLink"
+                name="sourceLink"
+                value={formData.sourceLink}
+                onChange={handleChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#c17a7a]"
+                placeholder="https://example.com/news-article"
+              />
+              <p className="text-xs text-gray-500 mt-1">URL to the original news source</p>
+            </div>
+
             {/* Submit Button */}
             <div className="flex gap-4">
               <button
@@ -352,6 +408,7 @@ export default function AdminPage() {
                       summary: "",
                       content: "",
                       source: "",
+                      sourceLink: "",
                       status: "verified",
                       image: null,
                     })
@@ -408,6 +465,16 @@ export default function AdminPage() {
                   <p className="text-sm text-gray-500">
                     Source: {post.source} • {new Date(post.createdAt).toLocaleDateString()}
                   </p>
+                  {post.sourceLink && (
+                    <a
+                      href={post.sourceLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-800 mt-1 inline-flex items-center gap-1"
+                    >
+                      View Source <ExternalLink size={14} />
+                    </a>
+                  )}
                 </div>
               </div>
             </div>

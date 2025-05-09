@@ -31,23 +31,32 @@ export async function POST(request) {
     const summary = formData.get('summary');
     const content = formData.get('content');
     const source = formData.get('source');
+    const sourceLink = formData.get('sourceLink');
     const status = formData.get('status');
     const image = formData.get('image');
 
     // Upload image to Cloudinary if present
     let imageUrl = null;
-    if (image) {
-      const bytes = await image.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      
-      // Convert buffer to base64
-      const base64Image = buffer.toString('base64');
-      const dataURI = `data:${image.type};base64,${base64Image}`;
-      
-      const result = await cloudinary.uploader.upload(dataURI, {
-        folder: 'india-pakwar',
-      });
-      imageUrl = result.secure_url;
+    if (image && image.size > 0) {
+      try {
+        const bytes = await image.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        
+        // Convert buffer to base64
+        const base64Image = buffer.toString('base64');
+        const dataURI = `data:${image.type};base64,${base64Image}`;
+        
+        const result = await cloudinary.uploader.upload(dataURI, {
+          folder: 'india-pakwar',
+        });
+        imageUrl = result.secure_url;
+      } catch (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        return NextResponse.json(
+          { success: false, message: 'Error uploading image' },
+          { status: 500 }
+        );
+      }
     }
 
     // Connect to MongoDB
@@ -59,6 +68,7 @@ export async function POST(request) {
       summary,
       content,
       source,
+      sourceLink,
       status,
       imageUrl,
       createdAt: new Date(),
