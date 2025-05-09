@@ -12,90 +12,56 @@ function useCurrentDateTime() {
   return now
 }
 
-// Sample news data
-const newsData = [
-  {
-    id: 1,
-    status: "verified",
-    title: "Indian Army Intercepts Drone",
-    image: "https://images.indianexpress.com/2025/05/MEA-briefing.jpg",
-    summary:
-      "A drone was shot down near the LoC in the Poonch sector today. Military officials confirmed the drone was carrying surveillance equipment.",
-    content:
-      "A drone was shot down near the Line of Control (LoC) in the Poonch sector today. Military officials confirmed the drone was carrying surveillance equipment and was intercepted by the Indian Army using anti-drone technology. This marks the fifth such incident in the region this month, highlighting the increasing use of unmanned aerial vehicles for reconnaissance purposes along the border. The debris has been collected for further forensic analysis to determine its origin and capabilities.",
-    source: "ANI",
-    date: "Today",
-    timestamp: "7 April 10:45 AM IST",
-    url: "https://example.com/news/1",
-  },
-  {
-    id: 2,
-    status: "unverified",
-    title: "Peace Talks Scheduled for Next Week",
-    image: "https://images.indianexpress.com/2025/05/andhra-1.jpg",
-    summary:
-      "Officials from both countries are reportedly meeting next week to discuss de-escalation measures along the border regions.",
-    content:
-      "Officials from both countries are reportedly meeting next week to discuss de-escalation measures along the border regions. The talks, which have not been officially confirmed by either government, are expected to focus on reducing military presence in key flashpoint areas and establishing better communication channels to prevent misunderstandings. Sources close to the diplomatic channels suggest that international mediators may also be present during these discussions. If confirmed, this would mark the first high-level dialogue between the two nations in over eight months.",
-    source: "Reuters",
-    date: "Today",
-    timestamp: "7 April 09:30 AM IST",
-    url: "https://example.com/news/2",
-  },
-  {
-    id: 3,
-    status: "false",
-    title: "Major Troop Movements Reported",
-    image: "https://images.indianexpress.com/2025/05/Security-personnel-inspect-metal-debris-found-in-an-open-field-at-Makhan-Windi-village-in-Amritsar-Thursday.-PTI1.jpg",
-    summary:
-      "Reports of significant troop deployments along the eastern border have been confirmed as routine exercises.",
-    content:
-      "Reports of significant troop deployments along the eastern border have been confirmed as routine exercises. Earlier social media claims suggesting a major military buildup have been debunked by official sources from both countries. The exercises were pre-planned and notification had been provided through established military communication channels. Defense analysts note that such exercises are conducted periodically and should not be misinterpreted as escalation. Citizens in border areas have been advised to disregard rumors and rely only on official information.",
-    source: "AFP",
-    date: "Yesterday",
-    timestamp: "6 April 14:20 PM IST",
-    url: "https://example.com/news/3",
-  },
-  {
-    id: 4,
-    status: "verified",
-    title: "Water Sharing Agreement Under Review",
-    image: "https://images.indianexpress.com/2025/04/Supreme-Court-6.jpg",
-    summary:
-      "The joint commission on water resources is reviewing the current sharing agreement amid concerns over reduced flow in shared rivers.",
-    content:
-      "The joint commission on water resources is reviewing the current sharing agreement amid concerns over reduced flow in shared rivers. The commission, which meets bi-annually, is examining data from monitoring stations along major waterways to assess compliance with existing treaties. Environmental experts have raised concerns about the impact of climate change on glacial melt patterns, which could further complicate water sharing arrangements in the coming years. Both nations rely heavily on these shared water resources for agriculture, which remains a crucial economic sector in the region.",
-    source: "The Hindu",
-    date: "Yesterday",
-    timestamp: "6 April 08:15 AM IST",
-    url: "https://example.com/news/4",
-  },
-  {
-    id: 5,
-    status: "verified",
-    title: "Trade Routes Reopened After Temporary Closure",
-    image: "https://images.indianexpress.com/2025/05/The-Subcontinents-challenge_Premium-01-1.jpg",
-    summary:
-      "Key trade routes between the two countries have resumed operations following a three-day closure due to security concerns.",
-    content:
-      "Key trade routes between the two countries have resumed operations following a three-day closure due to security concerns. The routes, vital for the exchange of agricultural products and textiles, were temporarily shut down after a security alert. Merchants on both sides expressed relief as the resumption of trade will prevent significant economic losses. Authorities have implemented enhanced security measures, including increased personnel and scanning equipment at crossing points. The brief disruption highlighted the economic interdependence that persists despite political tensions.",
-    source: "Economic Times",
-    date: "All Time",
-    timestamp: "2 April 11:30 AM IST",
-    url: "https://example.com/news/5",
-  },
-]
-
 export default function Home() {
   const [filter, setFilter] = useState("Today")
   const [selectedNews, setSelectedNews] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [posts, setPosts] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
   const now = useCurrentDateTime()
 
-  const filteredNews = newsData.filter((news) => filter === "All Time" || news.date === filter)
+  useEffect(() => {
+    fetchPosts()
+  }, [])
 
-  const openModal = (news) => {
-    setSelectedNews(news)
+  const fetchPosts = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/posts')
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch posts')
+      }
+
+      if (data.success) {
+        setPosts(data.posts)
+      }
+    } catch (error) {
+      console.error('Error fetching posts:', error)
+      setError('Failed to load posts. Please try again later.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const filteredPosts = posts.filter((post) => {
+    const postDate = new Date(post.createdAt)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    if (filter === "Today") {
+      return postDate.toDateString() === today.toDateString()
+    } else if (filter === "Yesterday") {
+      return postDate.toDateString() === yesterday.toDateString()
+    }
+    return true // "All Time"
+  })
+
+  const openModal = (post) => {
+    setSelectedNews(post)
     setIsModalOpen(true)
     document.body.style.overflow = "hidden"
   }
@@ -140,89 +106,121 @@ export default function Home() {
     }
   }
 
+  const formatDate = (date) => {
+    const postDate = new Date(date)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    if (postDate.toDateString() === today.toDateString()) {
+      return "Today"
+    } else if (postDate.toDateString() === yesterday.toDateString()) {
+      return "Yesterday"
+    }
+    return postDate.toLocaleDateString()
+  }
+
   return (
     <main className="min-h-screen bg-gray-100">
       {/* Enhanced Header */}
       <header
-  style={{
-    backgroundImage:
-      "url('/bannnerImage.png')",
-  }}
-  className="sticky top-0 z-20 bg-cover bg-center border-b border-gray-200 shadow-md text-white"
->
-  <div className="w-full h-full ">
-    <div className="container mx-auto px-4 py-6 flex flex-col items-center justify-center text-center">
-      <h1 className="text-3xl md:text-4xl font-extrabold tracking-wide flex items-center gap-2">
-        🇮🇳 REAL WAR UPDATES <span className="text-blue-300">📰</span>
-      </h1>
-      <p className="text-sm md:text-base mt-2 text-white/90">
-        Trusted News. No Noise. Verified. Patriotic.
-      </p>
-      <div className="text-xs text-white/70 mt-1">
-        {new Date().toLocaleDateString(undefined, {
-          weekday: "long",
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })}{" "}
-        •{" "}
-        {new Date().toLocaleTimeString(undefined, {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </div>
+        style={{
+          backgroundImage: "url('/bannnerImage.png')",
+        }}
+        className="sticky top-0 z-20 bg-cover bg-center border-b border-gray-200 shadow-md text-white"
+      >
+        <div className="w-full h-full">
+          <div className="container mx-auto px-4 py-6 flex flex-col items-center justify-center text-center">
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-wide flex items-center gap-2">
+              🇮🇳 REAL WAR UPDATES <span className="text-blue-300">📰</span>
+            </h1>
+            <p className="text-sm md:text-base mt-2 text-white/90">
+              Trusted News. No Noise. Verified. Patriotic.
+            </p>
+            <div className="text-xs text-white/70 mt-1">
+              {now.toLocaleDateString(undefined, {
+                weekday: "long",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}{" "}
+              •{" "}
+              {now.toLocaleTimeString(undefined, {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
 
-      {/* Filter Bar */}
-      <div className="flex justify-center mt-5 space-x-2 w-full max-w-md">
-        {["Today", "Yesterday", "All Time"].map((option) => (
-          <button
-            key={option}
-            onClick={() => setFilter(option)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border shadow-sm w-full
-              ${filter === option ? "bg-blue-600 text-white" : "bg-white/80 text-gray-900 hover:bg-gray-200"}`}
-          >
-            {option}
-          </button>
-        ))}
-      </div>
-    </div>
-  </div>
-</header>
-
-
+            {/* Filter Bar */}
+            <div className="flex justify-center mt-5 space-x-2 w-full max-w-md">
+              {["Today", "Yesterday", "All Time"].map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setFilter(option)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border shadow-sm w-full
+                    ${filter === option ? "bg-blue-600 text-white" : "bg-white/80 text-gray-900 hover:bg-gray-200"}`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </header>
 
       {/* News Cards */}
       <section className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredNews.map((news) => (
-            <div
-              key={news.id}
-              className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform transition hover:scale-[1.02]"
-              onClick={() => openModal(news)}
+        {isLoading ? (
+          <div className="text-center py-10">
+            <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading posts...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-10">
+            <p className="text-red-600">{error}</p>
+            <button
+              onClick={fetchPosts}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              <div className="p-4">
-                <div
-                  className={`inline-block px-2 py-1 rounded text-white text-xs font-bold mb-2 ${getStatusColor(news.status)}`}
-                >
-                  {news.status === "verified" && "🟢 "}
-                  {news.status === "unverified" && "🟡 "}
-                  {news.status === "false" && "🔴 "}
-                  {getStatusText(news.status)}
-                </div>
-                <h2 className="text-xl font-bold mb-2">{news.title}</h2>
-                <div className="h-48 bg-gray-200 mb-3 rounded overflow-hidden">
-                  <img src={news.image || "/placeholder.svg"} alt={news.title} className="w-full h-full object-cover" />
-                </div>
-                <p className="text-gray-700 text-sm mb-3">{news.summary}</p>
-                <div className="text-xs text-gray-500">
-                  Source: {news.source} • {news.timestamp}
+              Try Again
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPosts.map((post) => (
+              <div
+                key={post._id}
+                className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform transition hover:scale-[1.02]"
+                onClick={() => openModal(post)}
+              >
+                <div className="p-4">
+                  <div
+                    className={`inline-block px-2 py-1 rounded text-white text-xs font-bold mb-2 ${getStatusColor(post.status)}`}
+                  >
+                    {post.status === "verified" && "🟢 "}
+                    {post.status === "unverified" && "🟡 "}
+                    {post.status === "false" && "🔴 "}
+                    {getStatusText(post.status)}
+                  </div>
+                  <h2 className="text-xl font-bold mb-2">{post.title}</h2>
+                  <div className="h-48 bg-gray-200 mb-3 rounded overflow-hidden">
+                    <img
+                      src={post.imageUrl || "/placeholder.svg"}
+                      alt={post.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-gray-700 text-sm mb-3">{post.summary}</p>
+                  <div className="text-xs text-gray-500">
+                    Source: {post.source} • {formatDate(post.createdAt)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {filteredNews.length === 0 && (
+        {!isLoading && !error && filteredPosts.length === 0 && (
           <div className="text-center py-10">
             <p className="text-gray-500">No updates available for this filter.</p>
           </div>
@@ -252,23 +250,25 @@ export default function Home() {
               <h2 className="text-2xl font-bold mb-4">{selectedNews.title}</h2>
               <div className="h-64 bg-gray-200 mb-4 rounded overflow-hidden">
                 <img
-                  src={selectedNews.image || "/placeholder.svg"}
+                  src={selectedNews.imageUrl || "/placeholder.svg"}
                   alt={selectedNews.title}
                   className="w-full h-full object-cover"
                 />
               </div>
               <p className="text-gray-700 mb-6">{selectedNews.content}</p>
               <div className="text-sm text-gray-500 mb-4">
-                Source: {selectedNews.source} • {selectedNews.timestamp}
+                Source: {selectedNews.source} • {formatDate(selectedNews.createdAt)}
               </div>
-              <a
-                href={selectedNews.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                View Original Source <ExternalLink size={16} />
-              </a>
+              {selectedNews.source && (
+                <a
+                  href={selectedNews.source}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  View Original Source <ExternalLink size={16} />
+                </a>
+              )}
             </div>
           </div>
         </div>

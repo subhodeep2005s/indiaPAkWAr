@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowLeft, Upload, Plus, Trash2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowLeft, Upload, Plus, Trash2, Edit2, X } from "lucide-react"
 import Link from "next/link"
 
 export default function AdminPage() {
@@ -16,6 +16,25 @@ export default function AdminPage() {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [posts, setPosts] = useState([])
+  const [editingPost, setEditingPost] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
+
+  useEffect(() => {
+    fetchPosts()
+  }, [])
+
+  const fetchPosts = async () => {
+    try {
+      const response = await fetch('/api/posts')
+      const data = await response.json()
+      if (data.success) {
+        setPosts(data.posts)
+      }
+    } catch (error) {
+      console.error('Error fetching posts:', error)
+    }
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -34,35 +53,118 @@ export default function AdminPage() {
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Form submitted:", formData)
-      setSuccessMessage("Post created successfully!")
-      setIsSubmitting(false)
+    try {
+      const formDataToSend = new FormData()
+      formDataToSend.append('title', formData.title)
+      formDataToSend.append('summary', formData.summary)
+      formDataToSend.append('content', formData.content)
+      formDataToSend.append('source', formData.source)
+      formDataToSend.append('status', formData.status)
+      if (formData.image) {
+        formDataToSend.append('image', formData.image)
+      }
 
-      // Reset form after 2 seconds
+      const url = isEditing ? `/api/posts/${editingPost._id}` : '/api/posts'
+      const method = isEditing ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        body: formDataToSend,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Something went wrong')
+      }
+
+      setSuccessMessage(isEditing ? 'Post updated successfully!' : 'Post created successfully!')
+      fetchPosts()
+      
+      // Reset form
+      setFormData({
+        title: "",
+        summary: "",
+        content: "",
+        source: "",
+        status: "verified",
+        image: null,
+      })
+      setPreviewUrl(null)
+      setIsEditing(false)
+      setEditingPost(null)
+
       setTimeout(() => {
-        setFormData({
-          title: "",
-          summary: "",
-          content: "",
-          source: "",
-          status: "verified",
-          image: null,
-        })
-        setPreviewUrl(null)
         setSuccessMessage("")
       }, 2000)
-    }, 1500)
+    } catch (error) {
+      console.error('Error:', error)
+      setSuccessMessage(error.message || 'Error saving post')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEdit = (post) => {
+    setEditingPost(post)
+    setIsEditing(true)
+    setFormData({
+      title: post.title,
+      summary: post.summary,
+      content: post.content,
+      source: post.source,
+      status: post.status,
+      image: null,
+    })
+    setPreviewUrl(post.imageUrl)
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this post?')) return
+
+    try {
+      const response = await fetch(`/api/posts/${id}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Error deleting post')
+      }
+
+      setSuccessMessage('Post deleted successfully!')
+      fetchPosts()
+
+      setTimeout(() => {
+        setSuccessMessage("")
+      }, 2000)
+    } catch (error) {
+      console.error('Error:', error)
+      setSuccessMessage(error.message || 'Error deleting post')
+    }
   }
 
   const removeImage = () => {
     setFormData((prev) => ({ ...prev, image: null }))
     setPreviewUrl(null)
+  }
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "verified":
+        return "bg-green-500"
+      case "unverified":
+        return "bg-yellow-500"
+      case "false":
+        return "bg-red-500"
+      default:
+        return "bg-gray-500"
+    }
   }
 
   return (
@@ -84,9 +186,13 @@ export default function AdminPage() {
       {/* Form */}
       <section className="container mx-auto px-4 py-6 max-w-2xl">
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-2xl font-bold mb-6">Create New Post</h2>
+          <h2 className="text-2xl font-bold mb-6">{isEditing ? 'Edit Post' : 'Create New Post'}</h2>
 
-          {successMessage && <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-lg">{successMessage}</div>}
+          {successMessage && (
+            <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-lg">
+              {successMessage}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             {/* Status */}
@@ -132,7 +238,7 @@ export default function AdminPage() {
               {previewUrl ? (
                 <div className="relative">
                   <img
-                    src={previewUrl || "/placeholder.svg"}
+                    src={previewUrl}
                     alt="Preview"
                     className="w-full h-48 object-cover rounded-lg"
                   />
@@ -215,26 +321,97 @@ export default function AdminPage() {
             </div>
 
             {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full py-3 px-4 bg-[#c17a7a] text-white rounded-lg font-medium flex items-center justify-center gap-2 ${
-                isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-[#a56767]"
-              }`}
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                  Creating Post...
-                </>
-              ) : (
-                <>
-                  <Plus size={18} />
-                  Create Post
-                </>
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`flex-1 py-3 px-4 bg-[#c17a7a] text-white rounded-lg font-medium flex items-center justify-center gap-2 ${
+                  isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-[#a56767]"
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    {isEditing ? 'Updating...' : 'Creating...'}
+                  </>
+                ) : (
+                  <>
+                    <Plus size={18} />
+                    {isEditing ? 'Update Post' : 'Create Post'}
+                  </>
+                )}
+              </button>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(false)
+                    setEditingPost(null)
+                    setFormData({
+                      title: "",
+                      summary: "",
+                      content: "",
+                      source: "",
+                      status: "verified",
+                      image: null,
+                    })
+                    setPreviewUrl(null)
+                  }}
+                  className="py-3 px-4 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
               )}
-            </button>
+            </div>
           </form>
+        </div>
+      </section>
+
+      {/* Posts List */}
+      <section className="container mx-auto px-4 py-6">
+        <h2 className="text-2xl font-bold mb-6">All Posts</h2>
+        <div className="grid gap-6">
+          {posts.map((post) => (
+            <div key={post._id} className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <div className={`inline-block px-2 py-1 rounded text-white text-xs font-bold mb-2 ${getStatusColor(post.status)}`}>
+                    {post.status.toUpperCase()}
+                  </div>
+                  <h3 className="text-xl font-bold">{post.title}</h3>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(post)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(post._id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-4 mb-4">
+                {post.imageUrl && (
+                  <img
+                    src={post.imageUrl}
+                    alt={post.title}
+                    className="w-24 h-24 object-cover rounded-lg"
+                  />
+                )}
+                <div>
+                  <p className="text-gray-600 mb-2">{post.summary}</p>
+                  <p className="text-sm text-gray-500">
+                    Source: {post.source} • {new Date(post.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </main>
